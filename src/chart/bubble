@@ -1,0 +1,163 @@
+import store from '../store'
+import * as Data from '../data'
+import * as d3 from 'd3'
+import * as ChartCommon from './chartcommon'
+export default function (newValue,reDisplayFlg) {
+  const statOld = store.state.base.statOld;
+  const leftObjName0 = newValue.leftSide.split('/')[0];
+  const leftObjName1 = newValue.leftSide.split('/')[1];
+  const rightObjName0 = newValue.rightSide.split('/')[0];
+  const rightObjName1 = newValue.rightSide.split('/')[1];
+  const tooltip = d3.select('.tooltip');
+  // 表示中のグラフを削除-----------------------------------------------------------------------
+  d3.select('#bar-svg').remove();
+  d3.select('#scatter-svg').remove();
+  d3.select('.tree-div').remove();
+  // 大元のSVG領域の大きさを設定-------------------------------------------------------------
+  const width=400, height=400;
+  // バブル作成ファンクション----------------------------------------------------------------------
+  const bubbleCreate  = side => {
+    let dataset, id, targetColumn, position, statName, unit;
+    if (side==='left') {
+      dataset = Data[leftObjName0].data;
+      targetColumn = Data[leftObjName0][leftObjName1].column;
+      id = 'left-bubble-div';
+      position = 'static';
+      statName =Data[leftObjName0][leftObjName1].statName;
+      unit = Data[leftObjName0][leftObjName1].unit;
+    } else {
+      //データがないときは終了
+      if (!Data[rightObjName0]) return;
+      dataset = Data[rightObjName0].data;
+      targetColumn = Data[rightObjName0][rightObjName1].column;
+      id = 'right-bubble-div';
+      position = 'absolute';
+      statName =Data[rightObjName0][rightObjName1].statName;
+      unit = Data[rightObjName0][rightObjName1].unit;
+    }
+    const children = [];
+    for (let i in dataset) {
+      const val = dataset[i][targetColumn];
+      if (val) {
+        const obj = {
+          citycode: dataset[i].citycode,
+          name: dataset[i].cityname,
+          val: val
+        };
+        children.push(obj)
+      }
+    }
+    children.sort((a,b) => {
+      if(a.val > b.val) return -1;
+      if(a.val < b.val) return 1;
+      return 0;
+    });
+    for (let i in children) {
+      children[i]['top'] = Number(i) + 1;
+    }
+    const data_set = {children: children};
+    const bubble = d3.pack()
+    .size([width, height])
+    .padding(1.5) ;//バブル間の間隔
+    const nodes = d3.hierarchy( data_set )
+    .sum(d => d.val);// バブルの半径： val要素使用
+    // d3.packのdescendantsメソッドですべてのバブル描画データを変換
+    const bubble_data = bubble(nodes).descendants() ;
+    // データ-----------------------------------------------------------------------------------
+    // parentがないデータを返す
+    const no_root_bubble = bubble_data.filter(d => d.parent != null) ;
+    // 変換されたバブルデータにある半径の最大値/最小値の割り出し-----------------------------
+    const max_val = d3.max(no_root_bubble, d => d.r);
+    const min_val = d3.min(no_root_bubble, d => d.r);
+    // 色のスケール作成------------------------------------------------------------------------
+    const color_scale = d3.scaleLinear()
+    .domain( [min_val, max_val] )
+    .range(['white', 'red']);
+    const font_scale = d3.scaleLinear()
+    .domain([min_val, max_val])
+    .range([6, 28]);
+    // DIV作成---------------------------------------------------------------------------------
+    d3.select('#' + id).remove();
+    d3.select('#d3chart01').append('div')
+    .attr('id', id)
+    .attr('class', 'div bubble-div')
+    .style('height', height + 'px')
+    .style('width', width+ 'px')
+    .style('background','silver')
+    .style('position', ()  => position)
+    .style('top',0) //absoluteの時だけ有効
+    .style('right',0); //absoluteの時だけ有効
+    // SVG領域作成---------------------------------------------------------------------------
+    const svg =
+      d3.select('#' + id).append('svg')
+      .attr('class', 'svg')
+      .attr('width', width)
+      .attr('height', height);
+    // バブル作成-------------------------------------------------------------------------------
+    const bubbles = svg.append('g')
+    .selectAll('.bubble')
+    .data(no_root_bubble)
+    .enter()
+    .append('g')
+    .attr('class', 'bubble')
+    .attr('transform', d => 'translate('+d.x+','+d.y+')');
+    bubbles.append('circle')
+    .style('fill',  d => color_scale(d.r))
+    .attr('r', 0)
+    .transition()
+    .delay((d,i) => i * 70)
+    .attr('r', d => d.r);
+    bubbles.append('text')
+    .attr('text-anchor', 'middle')
+    .attr('dominant-baseline', 'central')
+    .text(d => d.data.name)
+    .attr('font-size', d => font_scale(d.r))
+    .attr('opacity', 0)
+    .transition()
+    .delay((d,i) => i * 70)
+    .attr('opacity', 1);
+    // バブルのツールチップ-----------------------------------------------------------------------
+    bubbles
+    .on('mouseover', function(d) {
+      tooltip
+      .style('visibility', 'visible')
+      .html(d.data.top + '位　' + d.data.name + '<br>' + d.data.val + unit);
+      d3.select(this) // マウスに重なった要素を選択
+      .attr('style', 'fill:rgb(0,0,255)');
+    })
+    .on('mousemove', function() {
+      tooltip
+      .style('top', (d3.event.pageY - 20) + 'px')
+      .style('left', (d3.event.pageX + 10) + 'px');
+    })
+    .on('mouseout', function() {
+      tooltip.style('visibility', 'hidden');
+      d3.select(this)
+      .attr('style', 'lightskyblue');
+    });
+    // 表名-------------------------------------------------------------------------------------
+    const statNameG =svg.append('g')
+    .attr('transform', 'translate(10,30)')
+    .append('text')
+    .text(statName)
+    .attr('font-size', '16px');
+    // PNG保存--------------------------------------------------------------------------------
+    const png =svg.append('g')
+    .attr('transform', 'translate(' + (width - 10) + ',20)')
+    .append('text')
+    .text('画像保存')
+    .attr('font-size', '12px')
+    .attr('text-anchor', 'end')
+    .attr('cursor', 'pointer')
+    .on('click', function () {
+      png.attr('display', 'none');
+      statNameG.attr('display', 'none');
+      ChartCommon.pngSave(svg, width, height, statName);
+      png.attr('display', 'block');
+      statNameG.attr('display', 'block')
+    })
+  };
+  // 左右のデータのあるなしでbubbleCreateファンクションを呼び出し------------------------------
+  if ((Data[leftObjName0] && statOld.leftSide !== newValue.leftSide) || reDisplayFlg) bubbleCreate('left');
+  if ((Data[rightObjName0] && statOld.rightSide !== newValue.rightSide) || reDisplayFlg) bubbleCreate('right')
+}
