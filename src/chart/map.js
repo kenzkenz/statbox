@@ -3,6 +3,7 @@ import * as Data from '../data'
 import * as d3 from 'd3'
 import Miyazakimin from '../miyazakimin'
 import * as ChartCommon from './chartcommon'
+// import Cartogram from 'cartogram-chart/dist/cartogram-chart'
 export default function (newValue,reDisplayFlg) {
   const statOld = store.state.base.statOld;
   const leftObjName0 = newValue.leftSide.split('/')[0];
@@ -34,7 +35,7 @@ export default function (newValue,reDisplayFlg) {
     }
     const maxLeft = d3.max(dataset, d => d[targetColumn]);
     const minLeft = d3.min(dataset, d => d[targetColumn]);
-    const center = [131.284, 32.1]
+    const center = [131.284, 32.1];
     // projectionを定義----------------------------------------------------------------------
     var projection = d3.geoMercator()
     .center(center)
@@ -45,10 +46,15 @@ export default function (newValue,reDisplayFlg) {
     var color = d3.scaleLinear()
     .domain([minLeft, maxLeft])
     .range(["white", "red"]);
-    // d3.json(url).then(json => {
-    // svg要素を追加
-    // }
-    // )
+    // var url = "https://kenzkenz.xsrv.jp/statbox/topojson/miyazakimin.topojson";
+    // d3.json(url).then(topojson => {
+    //   const myChart = Cartogram()(document.getElementById('left-map-div'))
+    //   myChart
+    //   .topoJson(topojson)
+    //   .topoObjectName('countries')
+    //   .value(0.01)
+    //   .color('red')
+    // });
     d3.select('#' + id + '-svg').remove();
     const svg = d3.select('#' + id + '-div')
     .append("svg")
@@ -105,10 +111,10 @@ export default function (newValue,reDisplayFlg) {
     .attr("font-size", "12px")
     .attr('cursor', 'pointer')
     .on('click', function (){
-      statNameG.attr('display', 'none')
-      png.attr('display', 'none')
-      ChartCommon.pngSave(svg,width, height, statName)
-      statNameG.attr('display', 'block')
+      statNameG.attr('display', 'none');
+      png.attr('display', 'none');
+      ChartCommon.pngSave(svg,width, height, statName);
+      statNameG.attr('display', 'block');
       png.attr('display', 'block')
     })
   };
